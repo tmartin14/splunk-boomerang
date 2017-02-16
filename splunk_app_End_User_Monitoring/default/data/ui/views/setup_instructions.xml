@@ -1,0 +1,272 @@
+<dashboard>
+  <label>Setup Instructions</label>
+  <description>Collect End User Measurements directly from the web browser in Splunk</description>
+  <row>
+    <panel>
+      <html>
+      <style>
+        .header  { font-size: 18px; line-height:30px;font-weight:bold;  text-align:center; text-decoration: underline; }
+        table    { border:solid 4px; border-collapse:collapse; table-layout:fixed; width:100%;}
+        table td { border:solid 2px; width:25%; word-wrap:hidden;overflow: scroll; vertical-align:top; padding: 20px; 
+                    font-size: 13px;}
+        table th { border:solid 2px; width:25%; word-wrap:hidden;overflow: scroll; vertical-align:top; align:right; 
+                   font-size:18px; line-height:30px;  background-color:#65A637; color: white;
+                   border: 2px solid black;}
+        table tr {  }
+        
+        .code{ overflow: visible; 
+               font-family:Consolas, "Liberation Mono", Menlo, Courier, monospace;
+               font-size:12px;
+               line-height:11px;
+               color:darkblue;
+               word-wrap:normal;
+               white-space:pre;
+               padding-right:10px;
+               padding-left:10px;
+               vertical-align:top;
+        }
+      
+        img {  display: block; border: 2px solid gray;  margin: 3px;  padding: 3px; max-width: 98%;}  
+
+        div.box-container {  border: 2px solid gray;  margin: 5px;  padding: 5px; max-width: 70%; } 
+     </style>
+ 
+ 
+ 
+      <table>
+       <tr>
+          <th width="100%">HTTP Event Collector (HEC)</th>
+      </tr>
+      <tr>
+        <td>
+          Before you add Boomerang.js to your web pages, we'll need to setup a 'beacon' (a.k.a. HEC endpoint) to accept the metrics you'll be sending to Splunk.  Here's how:<br /> <br />  
+      
+          <ol>
+            <li>
+              Create a New HTTP Event Collector (HEC) Token to accept the metrics from your web page. <br />  
+              <code>Settings --> Data Inputs --> HTTP Event Collector --> New Token </code> <br />
+              <img src="/static/app/Splunk_TA_End_User_Monitoring/HEC_NewToken.png" /> <br />
+              <br />
+            </li>
+            <li>
+              Setup the new input as follows:<br />
+              <img src="/static/app/Splunk_TA_End_User_Monitoring/HEC_BoomerangInput.png" /> <br />
+              Be sure to provide a <code>Source Type</code> value of <code>rum</code> so that the dashboards will see your metrics.<br /><br /><br />
+            </li>
+            <li>
+              <b>Make a note of the Token Value created here.  You will need this in your Javascript so it knows where to send the data.</b> <br />
+              <img src="/static/app/Splunk_TA_End_User_Monitoring/HEC_Token.png" /> <br />
+            </li>
+            <li>
+              <b>OPTIONAL: </b> For testing, you may want to disable SSL so you don't have to setup certificates.  To disable SSL for HEC change the Global Settings.<br/>
+              <img src="/static/app/Splunk_TA_End_User_Monitoring/HEC_GlobalSettings.png" /> 
+              <img src="/static/app/Splunk_TA_End_User_Monitoring/HEC_SSL.png" /> 
+              You can always go back and enable SSL later once you've setup your certificates.<br/><br/>
+            </li>
+            <li>
+              Because the data coming into HEC will be originating from various locations, you will need to enable cross origin http requests in your input.  This is done by editing the inputs.conf file.   <br/>
+              Add a new setting to the http stanza as follows:<br/><br/>
+              <pre>
+                /opt/splunk/etc/apps/splunk_httpinput/local/inputs.conf
+                
+                [http://boomerang]
+                disabled = 0
+                token = XXXXXXXX-XXXX-XXXX-XXXX-XXXXXXXXXXXX
+                index = main
+                indexes = main
+                source = rum
+                sourcetype = rum
+                sourcetypeSelection = Manual
+                
+                [http]
+                disabled = 0
+                index = main
+                enableSSL = 0
+                crossOriginSharingPolicy = *
+              </pre>  
+            </li>
+          </ol>
+      <br/><br/>    
+      That's It!   You're all set on the Splunk side.
+      </td>
+      </tr>
+      
+      <tr>
+          <th width="100%">Adding Boomerang.js to your Web Application</th>
+      </tr>
+      <tr>
+          <td>
+              <p>This App uses Web Timing metrics beaconed from <i>real</i> end users using <a href='https://soasta.github.io/boomerang/doc/howtos/howto-0.html' target='_blank'>boomerang.js</a> (a client-side JavaScript library originally developed by Yahoo!). The data is sent by Boomerang directly to Splunk's HEC endpoint you setup in the prior step.  To add Boomerang.js to your pages do the following:</p>
+              <br/>
+                  <ol>  
+                    	<li>Download <a href='https://github.com/SOASTA/boomerang' target='_blank'>boomerang.js</a> and add it to your web server.  For example, for tomcat you would create /js directory on your tomcat server (i.e. .../tomcat/webapps/ROOT/js/ ). <br/><br/>
+                    	</li>
+                    	<li>Add boomerang.js to the pages you'd like to monitor by adding this code to the &lt;HEAD&gt; section of your HTML:<br/>
+                      <pre>
+&lt;HEAD&gt;
+
+&lt;script src="/js/boomerang.js" /&gt;
+&lt;script src="/js/plugins/rt.js" /&gt;
+&lt;script src="/js/plugins/bw.js" /&gt;
+
+  &lt;script&gt;
+    BOOMR.init({
+      beacon_url: "http://splunk_server:HECport/services/collector/raw?channel=XXXXXXXX-XXXX-XXXX-XXXX-XXXXXXXXXXXX",
+      beacon_auth_token: "Splunk XXXXXXXX-XXXX-XXXX-XXXX-XXXXXXXXXXXX",
+      beacon_type: "POST",
+      site_domain: "example.com",
+      BW: {  base_url: "js/images/"  }
+    });
+  &lt;/script&gt;     
+                  </pre>
+                    <small><b>Notes:</b> <ol><li>  The 'channel' can be any valid GUID.  An easy choice is to use the HEC token as it is unique. </li>
+                               <li>There are a number of ways to modify your source code.  You could add a Servlet Filter to automatically inject the JavaScript into your code, or manually edit the HTML as hsown here.   Use whatever method works best for your environment.</li>
+                          </ol>
+                          </small>
+                      <br /><br />
+                    	</li>
+                    <p>That's it! Data sent by boomerang.js should now be flowing into Splunk. </p>
+                <br/><br/>
+                </ol>
+                
+                
+                <b>Optional Additions</b><br/><br/>
+                <ul>
+                    	<li>Add your own custom metrics.  Just add a section like this into your pages:
+                     <pre>
+  &lt;script&gt;
+    BOOMR.addVar({
+  		"activity_name": "checkout",		
+  		"item_id": 1234,
+  		"item_name": "Apple iPad Air",
+  		"order_total": 450.00
+  	});
+  &lt;/script&gt;     </pre>
+                    	</li>
+
+
+                    	<li>Add other plugins from boomerang.js by modifying the initial script.  The following example also includes the DNS and GUID plugins:
+                     <pre>
+  &lt;script&gt;
+    BOOMR.init({
+      beacon_url: "http://splunk_server:HECport/services/collector/raw?channel=XXXXXXXX-XXXX-XXXX-XXXX-XXXXXXXXXXXX",
+      beacon_auth_token: "Splunk XXXXXXXX-XXXX-XXXX-XXXX-XXXXXXXXXXXX",
+      beacon_type: "POST",
+      site_domain: "example.com",
+      BW: {  base_url: "js/images/"  },
+      DNS: {  base_url: "js/images/" },
+      GUID: {
+            cookieName: "boomerang-guid",
+            expires: 6000
+      }
+    });
+  &lt;/script&gt;     </pre>
+                    <br />
+                    	</li>
+                    </ul>
+          </td>
+      </tr>
+
+
+       <tr>
+          <th width="100%">Boomerang Parameters</th>
+      </tr>
+      <tr>
+        <td>
+              <p>
+              The beacon that sent to your server will contain several parameters.  Each boomerang plugin also adds its own set of 
+              parameters. 
+              </p>
+              <br/>
+              <h4>Default boomerang parameters</h4>
+              <dl>
+              <dt>v</dt> <dd>Version number of the boomerang library in use.</dd>
+              <dt>u</dt> <dd>URL of page that sends the beacon.</dd>
+              </dl>
+              
+              <h4>Roundtrip plugin parameters</h4>
+              <dl>
+              <dt>t_done</dt> <dd><strong>[optional]</strong> Perceived load time of the page.</dd>
+              <dt>t_page</dt> <dd><strong>[optional]</strong> Time taken from the head of the page to page_ready.</dd>
+              <dt>t_resp</dt> <dd><strong>[optional]</strong> Time taken from the user initiating the request to the first byte of the response.</dd>
+              <dt>t_other</dt> <dd><strong>[optional]</strong> Comma separated list of additional timers set by page developer.  Each timer is of the format <code>name|value</code>.  The following timers may be included:
+              <dl>
+              	<dt>t_load</dt> <dd><strong>[optional]</strong> If the page were prerendered, this is the time to fetch and prerender the page.</dd>
+              	<dt>t_prerender</dt> <dd><strong>[optional]</strong> If the page were prerendered, this is the time from start of prefetch to the actual page display.  It may only be useful for debugging.</dd>
+              	<dt>t_postrender</dt> <dd><strong>[optional]</strong> If the page were prerendered, this is the time from prerender finish to actual page display.  It may only be useful for debugging.</dd>
+              	<dt>boomerang</dt> <dd>The time it took boomerang to load up from first byte to last byte</dd>
+              	<dt>boomr_fb</dt> <dd><strong>[optional</strong> The time it took from the start of page load to the first byte of boomerang.  Only included if we know when page load started.</dd>
+              </dl></dd>
+              <dt>r</dt> <dd>URL of page that set the start time of the beacon.</dd>
+              <dt>r2</dt> <dd><strong>[optional]</strong> URL of referrer of current page.  Only set if different from <code>r</code> and <code>strict_referrer</code> has been explicitly turned off.</dd>
+              <dt>rt.start</dt> <dd>Specifies where the start time came from.  May be one of <code>cookie</code> for the start cookie, <code>navigation</code> for the W3C navigation timing API, <code>csi</code> for older versions of Chrome or <code>gtb</code> for the Google Toolbar.</dd>
+              <dt>rt.bstart</dt> <dd>The timestamp when boomerang showed up on the page</dd>
+              <dt>rt.end</dt> <dd>The timestamp when the done() method was called</dd>
+              </dl>
+              
+              <h4>Bandwidth &amp; latency plugin</h4>
+              <dl>
+              <dt>bw</dt> <dd>User's measured bandwidth in bytes per second</dd>
+              <dt>bw_err</dt> <dd>95% confidence interval margin of error in measuring user's bandwidth</dd>
+              <dt>lat</dt> <dd>User's measured HTTP latency in milliseconds</dd>
+              <dt>lat_err</dt> <dd>95% confidence interval margin of error in measuring user's latency</dd>
+              <dt>bw_time</dt> <dd>Timestamp (seconds since the epoch) on the user's browser when the bandwidth and latency was measured</dd>
+              </dl>
+              <p>Source: <a href="https://soasta.github.io/boomerang/doc/howtos/howto-0.html">https://soasta.github.io/boomerang/</a></p>
+              
+              <h2>Example Beacon:</h2>
+              <p>Below is an example of the beaconed paramaters with the bandwidth &amp; latency and navigation timing plugins enabled converted to JSON.</p>
+
+
+    <pre>
+    {
+    	"v":"0.9",
+    	"u":"file://localhost/Applications/Splunk/example.html",
+    	"rt.start":"navigation",
+    	"rt.bstart":"1384457297300",
+    	"rt.end":"1384457297303",
+    	"t_done":"13",
+    	"t_resp":"0",
+    	"t_page":"13",
+    	"r":"",
+    	"t_other":"boomerang|2,boomr_fb|10",
+    	"nt_red_cnt":"0",
+    	"nt_nav_type":"1",
+    	"nt_nav_st":"1384457297290",
+    	"nt_red_st":"0",
+    	"nt_red_end":"0",
+    	"nt_fet_st":"1384457297290",
+    	"nt_dns_st":"1384457297290",
+    	"nt_dns_end":"1384457297290",
+    	"nt_con_st":"1384457297290",
+    	"nt_con_end":"1384457297290",
+    	"nt_req_st":"1384457297290",
+    	"nt_res_st":"1384457297290",
+    	"nt_res_end":"1384457297290",
+    	"nt_domloading":"1384457297295",
+    	"nt_domint":"1384457297302",
+    	"nt_domcontloaded_st":"1384457297302",
+    	"nt_domcontloaded_end":"1384457297302",
+    	"nt_domcomp":"1384457297303",
+    	"nt_load_st":"1384457297303",
+    	"nt_load_end":"0",
+    	"nt_unload_st":"1384457297291",
+    	"nt_unload_end":"1384457297291",
+    	"bw":"NaN",
+    	"bw_err":"NaN",
+    	"lat":"24",
+    	"lat_err":"0.84",
+    	"bw_time":"1384457298",
+    	"ua_raw":{"string":"Mozilla/5.0 (Macintosh; Intel Mac OS X 10_8_5) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/30.0.1599.101 Safari/537.36"},
+    	"clientip":"127.0.0.1"
+    }
+    </pre>
+
+
+          </td>
+      </tr>
+    </table>
+    </html>
+    </panel>
+  </row>
+</dashboard>

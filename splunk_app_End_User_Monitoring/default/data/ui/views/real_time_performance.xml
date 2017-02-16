@@ -1,0 +1,144 @@
+<form>
+  <label>Web Page Performance</label>
+  <description>Summary of key performance metrics by domain.</description>
+  <fieldset autoRun="true" submitButton="false">
+    <input type="time" token="myTime" searchWhenChanged="true">
+      <label>Time Period</label>
+      <default>
+        <earliest>-60m@m</earliest>
+        <latest>now</latest>
+      </default>
+    </input>
+    <input type="dropdown" token="myHost" searchWhenChanged="true">
+      <label>Domain/Host:</label>
+      <default>*</default>
+      <choice value="*">All</choice>
+      <search>
+        <query>sourcetype="rum" | stats count by host</query>
+        <earliest>-30d@d</earliest>
+        <latest>now</latest>
+      </search>
+      <fieldForLabel>host</fieldForLabel>
+      <fieldForValue>host</fieldForValue>
+      <initialValue>*</initialValue>
+    </input>
+    <input type="dropdown" token="myUserAgent" searchWhenChanged="true">
+      <label>User Agent</label>
+      <default>*</default>
+      <choice value="*">All</choice>
+      <search>
+        <query>sourcetype="rum" "host"="$myHost$" 
+| eval useragent=urldecode(ua_raw)
+| stats count by useragent, ua_raw</query>
+        <earliest>-30d@d</earliest>
+        <latest>now</latest>
+      </search>
+      <fieldForLabel>useragent</fieldForLabel>
+      <fieldForValue>ua_raw</fieldForValue>
+      <initialValue>*</initialValue>
+    </input>
+  </fieldset>
+  <row>
+    <panel>
+      <single>
+        <title>Number of Events</title>
+        <search>
+          <query>sourcetype="rum" host="$myHost$" ua_raw="$myUserAgent$" 
+
+ | stats count AS events</query>
+          <earliest>$myTime.earliest$</earliest>
+          <latest>$myTime.latest$</latest>
+        </search>
+      </single>
+    </panel>
+    <panel>
+      <single>
+        <title>Avg. Client DNS Lookup</title>
+        <search>
+          <query>sourcetype="rum" host="$myHost$" ua_raw="$myUserAgent$" 
+
+ | eval dns=(nt_dns_end - nt_dns_st)*10 | stats avg(dns) as avg_dns | eval avg_dns=round(avg_dns,2) | rangemap field=avg_dns low=0-100 elevated=101-200 default=severe</query>
+          <earliest>$myTime.earliest$</earliest>
+          <latest>$myTime.latest$</latest>
+        </search>
+        <option name="linkView">search</option>
+        <option name="unit">ms</option>
+      </single>
+    </panel>
+    <panel>
+      <single>
+        <title>Avg. Time to First Byte (TTFB)</title>
+        <search>
+          <query>sourcetype="rum" host="$myHost$" ua_raw="$myUserAgent$" 
+
+| eval ttfb=t_resp/1000 | stats avg(ttfb) as "TTFB" | eval TTFB=round(TTFB,2) | rangemap field=TTFB low=0-4 elevated=5-9 default=severe</query>
+          <earliest>$myTime.earliest$</earliest>
+          <latest>$myTime.latest$</latest>
+        </search>
+        <option name="linkView">search</option>
+        <option name="numberPrecision">0.000</option>
+        <option name="unit">sec</option>
+      </single>
+    </panel>
+    <panel>
+      <single>
+        <title>Avg. Page Ready</title>
+        <search>
+          <query>sourcetype="rum" host="$myHost$" ua_raw="$myUserAgent$" 
+
+ | eval ready=t_page/1000 | stats avg(ready) as "Ready" | eval Ready=round(Ready,2) | rangemap field=Ready low=0-4 elevated=5-9 default=severe</query>
+          <earliest>$myTime.earliest$</earliest>
+          <latest>$myTime.latest$</latest>
+        </search>
+        <option name="linkView">search</option>
+        <option name="numberPrecision">0.000</option>
+        <option name="unit">sec</option>
+      </single>
+    </panel>
+  </row>
+  <row>
+    <panel>
+      <chart>
+        <title>Overall Page Load Metrics</title>
+        <search>
+          <query>sourcetype="rum" host="$myHost$" ua_raw="$myUserAgent$" 
+
+|  eval load= t_page/1000 |   eval ready=t_done/1000 |  eval ttfb=t_resp/1000 |  eval dns=(nt_dns_end-nt_dns_st)/1000 |  timechart avg(load),avg(ready),avg(ttfb),avg(dns) |  rename avg(dns) as "DNS" |  rename avg(ttfb) as "First Byte" |  rename avg(ready) as "Doc Complete" |  rename avg(load) as "Load Time"</query>
+          <earliest>$myTime.earliest$</earliest>
+          <latest>$myTime.latest$</latest>
+        </search>
+        <option name="charting.axisTitleX.visibility">visible</option>
+        <option name="charting.axisTitleY.visibility">visible</option>
+        <option name="charting.axisX.scale">linear</option>
+        <option name="charting.axisY.scale">linear</option>
+        <option name="charting.chart">area</option>
+        <option name="charting.chart.nullValueMode">connect</option>
+        <option name="charting.chart.sliceCollapsingThreshold">0.01</option>
+        <option name="charting.chart.stackMode">default</option>
+        <option name="charting.chart.style">shiny</option>
+        <option name="charting.drilldown">all</option>
+        <option name="charting.layout.splitSeries">0</option>
+        <option name="charting.legend.labelStyle.overflowMode">ellipsisMiddle</option>
+        <option name="charting.legend.placement">right</option>
+        <option name="height">256</option>
+      </chart>
+    </panel>
+  </row>
+  <row>
+    <panel>
+      <chart>
+        <title>Page Load Metrics</title>
+        <search>
+          <query>sourcetype="rum" host="$myHost$" ua_raw="$myUserAgent$" 
+|  eval URL=urldecode(u), load= t_page/1000, ready=t_done/1000, ttfb=t_resp/1000,  dns=(nt_dns_end-nt_dns_st)/1000 
+|  stats avg(load),avg(ready),avg(ttfb),avg(dns) by URL 
+|  rename avg(dns) as "DNS"  avg(ttfb) as "TTFB" avg(ready) as "Doc Complete" avg(load) as "Load Time"</query>
+          <earliest>$myTime.earliest$</earliest>
+          <latest>$myTime.latest$</latest>
+        </search>
+        <option name="charting.chart">bar</option>
+        <option name="height">350</option>
+      </chart>
+    </panel>
+  </row>
+</form>

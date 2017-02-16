@@ -1,0 +1,40 @@
+<form>
+  <label>Browser Performance</label>
+  <description>Summary of key performance metrics by browser.</description>
+  <fieldset autoRun="true" submitButton="false">
+    <input type="time" token="myTime" searchWhenChanged="true">
+      <label>Time Period</label>
+      <default>
+        <earliest>-7d@h</earliest>
+        <latest>now</latest>
+      </default>
+    </input>
+  </fieldset>
+  <row>
+    <panel>
+      <chart>
+        <title>Events by User Agent</title>
+        <search ref="Events by User Agent"></search>
+        <option name="height">299</option>
+      </chart>
+    </panel>
+  </row>
+  <row>
+    <panel>
+      <chart>
+        <title>Browser Performance by User Agent</title>
+        <search>
+          <query>sourcetype="rum" 
+| eval useragent=urldecode(ua_raw) 
+| chart avg(t_page) AS "Page Load", avg(t_resp) as "TTFB" over useragent 
+| rename useragent AS "OS / Browser"</query>
+          <earliest>$myTime.earliest$</earliest>
+          <latest>$myTime.latest$</latest>
+        </search>
+        <option name="charting.chart">bar</option>
+        <option name="charting.legend.labelStyle.overflowMode">ellipsisMiddle</option>
+        <option name="height">310</option>
+      </chart>
+    </panel>
+  </row>
+</form>

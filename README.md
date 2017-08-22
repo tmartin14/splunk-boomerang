@@ -8,3 +8,5 @@ This is a Splunk Application for visualizing data sent from Boomerang.js
   - Add Boomerang.js to your web pages
   
 Detailed installation instructions can be found in the Setup Instructions dashboard in the app.
+
+<a href="BoomerangDashboard.png" rel="Sample Screenshot"><img src="BoomerangDashboard.png" alt="Sample Screenshot" /></a>
